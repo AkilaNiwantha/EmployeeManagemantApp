@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Employee Management System</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:#f5f6fa; color:#1f2937; height:100vh; display:flex; overflow:hidden; }
+  .sidebar { width:230px; background:linear-gradient(180deg,#312e81,#4338ca); color:#fff; padding:24px 0; display:flex; flex-direction:column; flex-shrink:0; }
+  .sidebar-header { padding:0 22px 20px; border-bottom:1px solid rgba(255,255,255,0.12); }
+  .sidebar-header h1 { font-size:20px; font-weight:800; }
+  .sidebar-header p { font-size:11px; opacity:0.7; margin-top:2px; }
+  .nav { flex:1; padding:16px 10px; }
+  .nav-btn { display:flex; align-items:center; gap:10px; width:100%; padding:10px 14px; margin-bottom:4px; border:none; border-radius:10px; cursor:pointer; font-size:14px; color:#fff; background:transparent; transition:all .15s; text-align:left; }
+  .nav-btn.active { background:rgba(255,255,255,0.18); font-weight:700; }
+  .nav-btn:hover { background:rgba(255,255,255,0.1); }
+  .file-section { padding:14px 14px 10px; border-top:1px solid rgba(255,255,255,0.12); }
+  .file-section .label { font-size:10px; text-transform:uppercase; letter-spacing:1px; opacity:0.5; margin-bottom:10px; }
+  .file-status { background:rgba(255,255,255,0.08); border-radius:8px; padding:8px 12px; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between; }
+  .file-status .name { font-size:13px; font-weight:700; word-break:break-all; }
+  .file-status .sub { font-size:11px; color:#a5b4fc; }
+  .file-none { background:rgba(255,255,255,0.05); border-radius:8px; padding:10px 12px; margin-bottom:10px; font-size:11px; color:rgba(255,255,255,0.4); text-align:center; line-height:1.5; }
+  .save-btn { width:100%; padding:11px 14px; border-radius:10px; border:none; font-weight:700; font-size:14px; cursor:pointer; transition:all .2s; }
+  .save-btn.has-changes { background:linear-gradient(135deg,#f59e0b,#f97316); color:#fff; box-shadow:0 2px 12px rgba(245,158,11,0.4); }
+  .save-btn.no-changes { background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.35); cursor:default; }
+  .open-btn { width:100%; margin-top:8px; padding:9px 14px; border-radius:10px; border:1.5px solid rgba(255,255,255,0.15); background:transparent; color:#c7d2fe; font-weight:600; font-size:13px; cursor:pointer; }
+  .unsaved-hint { font-size:10px; text-align:center; margin-top:5px; color:#fbbf24; }
+  .main { flex:1; overflow:auto; padding:28px 32px; }
+  .toast { position:fixed; top:20px; right:20px; padding:10px 22px; border-radius:10px; font-weight:600; font-size:14px; z-index:9999; box-shadow:0 4px 12px rgba(0,0,0,0.15); color:#fff; transition:opacity .3s; }
+  .badge { padding:2px 10px; border-radius:12px; font-size:12px; font-weight:600; white-space:nowrap; display:inline-block; }
+  .btn { padding:8px 18px; border-radius:8px; border:none; font-weight:600; font-size:13px; cursor:pointer; transition:all .15s; display:inline-flex; align-items:center; gap:6px; }
+  .btn-primary { background:linear-gradient(135deg,#6366f1,#8b5cf6); color:#fff; }
+  .btn-success { background:linear-gradient(135deg,#10b981,#059669); color:#fff; }
+  .btn-danger { background:linear-gradient(135deg,#ef4444,#dc2626); color:#fff; }
+  .btn-warning { background:linear-gradient(135deg,#f59e0b,#f97316); color:#fff; }
+  .btn-secondary { background:#f3f4f6; color:#374151; border:1.5px solid #d1d5db; }
+  .btn-ghost { background:transparent; color:#6366f1; padding:4px 10px; font-size:12px; }
+  .btn-ghost.red { color:#ef4444; }
+  .btn:disabled { opacity:0.5; cursor:default; }
+  .card { background:#fff; border-radius:14px; padding:22px; box-shadow:0 1px 3px rgba(0,0,0,0.06); }
+  .stat-card { background:#fff; border-radius:14px; padding:20px 22px; flex:1; min-width:180px; box-shadow:0 1px 3px rgba(0,0,0,0.06); border:1px solid #f3f4f6; display:flex; align-items:center; gap:12px; }
+  .stat-icon { width:42px; height:42px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:20px; }
+  .stat-label { font-size:13px; color:#6b7280; }
+  .stat-value { font-size:26px; font-weight:700; color:#111827; }
+  .input-group { margin-bottom:14px; }
+  .input-group label { display:block; font-size:13px; font-weight:600; color:#374151; margin-bottom:4px; }
+  .input-group input, .input-group select { width:100%; padding:8px 12px; border:1.5px solid #d1d5db; border-radius:8px; font-size:14px; outline:none; box-sizing:border-box; }
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:0 16px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { padding:12px 14px; text-align:left; font-weight:600; color:#6b7280; border-bottom:1px solid #e5e7eb; background:#f9fafb; }
+  td { padding:10px 14px; border-bottom:1px solid #f3f4f6; }
+  .modal-overlay { position:fixed; inset:0; z-index:1000; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.4); }
+  .modal-box { background:#fff; border-radius:16px; padding:28px; min-width:440px; max-width:90vw; max-height:85vh; overflow:auto; box-shadow:0 25px 50px rgba(0,0,0,0.2); }
+  .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+  .modal-header h2 { margin:0; font-size:20px; }
+  .modal-close { background:none; border:none; font-size:22px; cursor:pointer; color:#9ca3af; }
+  .shift-table { font-size:12px; }
+  .shift-table th, .shift-table td { border:1px solid #e5e7eb; padding:2px; text-align:center; }
+  .shift-table .emp-cell { padding:6px 10px; text-align:left; position:sticky; left:0; background:#fff; z-index:1; font-weight:600; min-width:130px; }
+  .shift-table .emp-cell .dept { font-size:10px; color:#9ca3af; font-weight:400; }
+  .shift-table .header-cell { position:sticky; left:0; z-index:2; background:#f9fafb; min-width:130px; text-align:left; padding:8px 10px; }
+  .shift-select { width:42px; font-size:10px; border:none; background:transparent; cursor:pointer; text-align:center; font-weight:600; }
+  .bar-track { width:140px; height:8px; background:#f3f4f6; border-radius:4px; overflow:hidden; }
+  .bar-fill { height:100%; background:linear-gradient(90deg,#6366f1,#8b5cf6); border-radius:4px; }
+  .empty-state { padding:30px; text-align:center; color:#9ca3af; }
+  .flex-between { display:flex; justify-content:space-between; align-items:center; }
+  .flex-gap { display:flex; gap:10px; align-items:center; }
+  .flex-wrap { display:flex; flex-wrap:wrap; gap:16px; }
+  .mb-4 { margin-bottom:16px; }
+  .mb-6 { margin-bottom:24px; }
+  .mb-5 { margin-bottom:20px; }
+  .search-bar { flex:1; padding:8px 14px; border:1.5px solid #d1d5db; border-radius:8px; font-size:14px; outline:none; }
+  .filter-select { padding:8px 14px; border:1.5px solid #d1d5db; border-radius:8px; font-size:14px; }
+  .legend-item { display:flex; align-items:center; gap:5px; font-size:12px; }
+  .legend-dot { width:12px; height:12px; border-radius:3px; }
+  .unlink-btn { background:none; border:none; color:#f87171; cursor:pointer; font-size:14px; }
+  .page-title { font-size:26px; font-weight:800; }
+  .page-sub { color:#6b7280; font-size:14px; }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.85;} }
+  .pulse { animation: pulse 2s infinite; }
+</style>
+</head>
+<body>
+<div class="sidebar">
+  <div class="sidebar-header">
+    <h1>👔 EMS</h1>
+    <p>Employee Management System</p>
+  </div>
+  <nav class="nav" id="nav"></nav>
+  <div class="file-section">
+    <div class="label">Excel File Storage</div>
+    <div id="file-status"></div>
+    <button class="save-btn no-changes" id="save-btn" onclick="handleSave()">✅ All Saved</button>
+    <div class="unsaved-hint" id="unsaved-hint" style="display:none">Unsaved changes</div>
+    <button class="open-btn" onclick="handleOpen()">📂 Open Excel File</button>
+  </div>
+</div>
+<div class="main" id="main"></div>
+<div id="toast-container"></div>
+<div id="modal-container"></div>
+
+<script>
+// ─── STATE ───
+const DAYS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
+const SHIFT_TYPES=[{id:"morning",label:"Morning",color:"#fbbf24",bg:"#fef3c7"},{id:"afternoon",label:"Afternoon",color:"#60a5fa",bg:"#dbeafe"},{id:"night",label:"Night",color:"#a78bfa",bg:"#ede9fe"},{id:"off",label:"Day Off",color:"#9ca3af",bg:"#f3f4f6"}];
+const LEAVE_TYPES=["Annual","Sick","Personal","Maternity/Paternity","Unpaid"];
+const DEPARTMENTS=["Engineering","Marketing","Sales","HR","Finance","Operations","Support"];
+const uid=()=>Math.random().toString(36).slice(2,10);
+const fmt=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+const daysInMonth=(y,m)=>new Date(y,m+1,0).getDate();
+
+let state = {
+  tab: "dashboard",
+  employees: [
+    {id:"emp1",name:"Alice Johnson",email:"alice@company.com",department:"Engineering",position:"Senior Developer",phone:"555-0101",joinDate:"2022-03-15",status:"Active"},
+    {id:"emp2",name:"Bob Smith",email:"bob@company.com",department:"Marketing",position:"Marketing Manager",phone:"555-0102",joinDate:"2021-07-01",status:"Active"},
+    {id:"emp3",name:"Carol Davis",email:"carol@company.com",department:"Sales",position:"Sales Rep",phone:"555-0103",joinDate:"2023-01-10",status:"Active"},
+    {id:"emp4",name:"David Lee",email:"david@company.com",department:"Engineering",position:"Junior Developer",phone:"555-0104",joinDate:"2023-06-20",status:"Active"},
+    {id:"emp5",name:"Eva Martinez",email:"eva@company.com",department:"HR",position:"HR Specialist",phone:"555-0105",joinDate:"2022-11-05",status:"Active"},
+    {id:"emp6",name:"Frank Wilson",email:"frank@company.com",department:"Finance",position:"Accountant",phone:"555-0106",joinDate:"2021-09-12",status:"Active"},
+  ],
+  leaves: [],
+  shifts: {},
+  calYear: 2026,
+  calMonth: 1,
+  search: "",
+  deptFilter: "All",
+  hasUnsaved: false,
+  fileName: null,
+  saving: false,
+};
+let fileHandle = null;
+
+// ─── EXCEL ───
+function buildWB(){
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(state.employees.length?state.employees:[{id:"",name:"",email:"",department:"",position:"",phone:"",joinDate:"",status:""}]),"Employees");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(state.leaves.length?state.leaves:[{id:"",employeeId:"",type:"",startDate:"",endDate:"",reason:"",status:""}]),"Leaves");
+  const sr=[];Object.entries(state.shifts).forEach(([d,e])=>Object.entries(e).forEach(([eid,s])=>sr.push({date:d,employeeId:eid,shift:s})));
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(sr.length?sr:[{date:"",employeeId:"",shift:""}]),"Shifts");
+  return wb;
+}
+function parseWB(wb){
+  const employees=(XLSX.utils.sheet_to_json(wb.Sheets["Employees"]||{})||[]).filter(e=>e.id);
+  const leaves=(XLSX.utils.sheet_to_json(wb.Sheets["Leaves"]||{})||[]).filter(l=>l.id);
+  const rows=XLSX.utils.sheet_to_json(wb.Sheets["Shifts"]||{})||[];
+  const shifts={};rows.forEach(r=>{if(r.date&&r.employeeId&&r.shift){if(!shifts[r.date])shifts[r.date]={};shifts[r.date][r.employeeId]=r.shift;}});
+  return {employees,leaves,shifts};
+}
+
+async function handleOpen(){
+  try{
+    const[handle]=await window.showOpenFilePicker({types:[{description:"Excel",accept:{"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":[".xlsx"]}}]});
+    const file=await handle.getFile();
+    const buf=await file.arrayBuffer();
+    const wb=XLSX.read(buf,{type:"array"});
+    const data=parseWB(wb);
+    fileHandle=handle;
+    state.fileName=file.name;
+    state.employees=data.employees.length?data.employees:state.employees;
+    state.leaves=data.leaves;
+    state.shifts=data.shifts;
+    state.hasUnsaved=false;
+    render();
+    showToast("Opened "+file.name+" — linked for saving");
+  }catch(e){if(e.name!=="AbortError")showToast("Failed to open file",true);}
+}
+
+async function handleSave(){
+  if(!state.hasUnsaved)return;
+  state.saving=true; render();
+  try{
+    if(!fileHandle){
+      fileHandle=await window.showSaveFilePicker({suggestedName:"ems_data.xlsx",types:[{description:"Excel",accept:{"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":[".xlsx"]}}]});
+      const f=await fileHandle.getFile();
+      state.fileName=f.name;
+    }
+    const wb=buildWB();
+    const wbout=XLSX.write(wb,{bookType:"xlsx",type:"array"});
+    const writable=await fileHandle.createWritable();
+    await writable.write(new Blob([wbout]));
+    await writable.close();
+    state.hasUnsaved=false;
+    state.saving=false;
+    render();
+    showToast("Saved to "+state.fileName+"!");
+  }catch(e){
+    state.saving=false;render();
+    if(e.name!=="AbortError")showToast("Save failed: "+e.message,true);
+  }
+}
+
+function markUnsaved(){ state.hasUnsaved=true; renderFileSection(); }
+
+// ─── TOAST ───
+function showToast(msg,isError){
+  const el=document.createElement("div");
+  el.className="toast";
+  el.style.background=isError?"#ef4444":"#10b981";
+  el.textContent=msg;
+  document.getElementById("toast-container").appendChild(el);
+  setTimeout(()=>el.remove(),2500);
+}
+
+// ─── MODAL ───
+function showModal(title,content){
+  const c=document.getElementById("modal-container");
+  c.innerHTML=`<div class="modal-overlay" onclick="closeModal()"><div class="modal-box" onclick="event.stopPropagation()"><div class="modal-header"><h2>${title}</h2><button class="modal-close" onclick="closeModal()">✕</button></div><div id="modal-body">${content}</div></div></div>`;
+}
+function closeModal(){ document.getElementById("modal-container").innerHTML=""; }
+
+// ─── RENDER ───
+function render(){
+  renderNav();
+  renderFileSection();
+  renderPage();
+}
+
+function renderNav(){
+  const tabs=[{id:"dashboard",icon:"📊",label:"Dashboard"},{id:"employees",icon:"👥",label:"Employees"},{id:"leaves",icon:"🏖️",label:"Leave Mgmt"},{id:"shifts",icon:"📅",label:"Shift Calendar"}];
+  document.getElementById("nav").innerHTML=tabs.map(t=>`<button class="nav-btn ${state.tab===t.id?"active":""}" onclick="state.tab='${t.id}';render()">${t.icon} ${t.label}</button>`).join("");
+}
+
+function renderFileSection(){
+  const fs=document.getElementById("file-status");
+  if(state.fileName){
+    fs.innerHTML=`<div class="file-status"><div><div class="sub">Linked to</div><div class="name">📄 ${state.fileName}</div></div><button class="unlink-btn" onclick="fileHandle=null;state.fileName=null;render()" title="Unlink">✕</button></div>`;
+  } else {
+    fs.innerHTML=`<div class="file-none">No file linked.<br>Open an existing file or save to create one.</div>`;
+  }
+  const btn=document.getElementById("save-btn");
+  if(state.saving){btn.textContent="⏳ Writing...";btn.className="save-btn has-changes";}
+  else if(state.hasUnsaved){btn.textContent="💾 Save to File";btn.className="save-btn has-changes pulse";}
+  else{btn.textContent="✅ All Saved";btn.className="save-btn no-changes";}
+  document.getElementById("unsaved-hint").style.display=state.hasUnsaved?"block":"none";
+}
+
+function renderPage(){
+  const m=document.getElementById("main");
+  if(state.tab==="dashboard") m.innerHTML=renderDashboard();
+  else if(state.tab==="employees") m.innerHTML=renderEmployees();
+  else if(state.tab==="leaves") m.innerHTML=renderLeaves();
+  else if(state.tab==="shifts") m.innerHTML=renderShifts();
+}
+
+function badge(text,color="#6b7280",bg="#f3f4f6"){ return `<span class="badge" style="background:${bg};color:${color}">${text}</span>`; }
+function statusBadge(s){ return s==="Active"||s==="Approved"?badge(s,"#059669","#d1fae5"):s==="Rejected"?badge(s,"#dc2626","#fee2e2"):s==="Pending"?badge(s,"#d97706","#fef3c7"):s==="On Leave"?badge(s,"#d97706","#fef3c7"):badge(s); }
+function saveBtn(){ return state.hasUnsaved?`<button class="btn btn-warning" onclick="handleSave()">💾 Save</button>`:"";}
+
+// ─── DASHBOARD ───
+function renderDashboard(){
+  const e=state.employees, l=state.leaves;
+  const total=e.length, active=e.filter(x=>x.status==="Active").length;
+  const approved=l.filter(x=>x.status==="Approved").length, pending=l.filter(x=>x.status==="Pending").length;
+  const depts={};e.forEach(x=>{depts[x.department]=(depts[x.department]||0)+1;});
+  const linked=state.fileName?`Linked to <b>${state.fileName}</b>`:"Open or create an Excel file to persist data";
+  let h=`<div class="flex-between mb-4"><h1 class="page-title">Dashboard</h1>${saveBtn()}</div>`;
+  h+=`<p class="page-sub mb-6">${linked}</p>`;
+  h+=`<div class="flex-wrap mb-6">`;
+  h+=statCard("👥","Total Employees",total,"#6366f1")+statCard("✅","Active",active,"#10b981")+statCard("🏖️","Approved Leaves",approved,"#f59e0b")+statCard("⏳","Pending",pending,"#ef4444");
+  h+=`</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">`;
+  h+=`<div class="card"><h3 style="margin:0 0 14px;font-size:16px">Department Breakdown</h3>`;
+  Object.entries(depts).forEach(([d,c])=>{h+=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><div style="flex:1;font-size:13px">${d}</div><div class="bar-track"><div class="bar-fill" style="width:${(c/total)*100}%"></div></div><div style="font-size:13px;font-weight:700;min-width:24px;text-align:right">${c}</div></div>`;});
+  h+=`</div><div class="card"><h3 style="margin:0 0 14px;font-size:16px">Recent Leave Requests</h3>`;
+  if(!l.length)h+=`<p style="color:#9ca3af;font-size:13px">No leave requests yet.</p>`;
+  l.slice(-5).reverse().forEach(lv=>{const emp=e.find(x=>x.id===lv.employeeId);h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f3f4f6;font-size:13px"><div><div style="font-weight:600">${emp?.name||"Unknown"}</div><div style="color:#9ca3af;font-size:11px">${lv.type} · ${lv.startDate}</div></div>${statusBadge(lv.status)}</div>`;});
+  h+=`</div></div>`;
+  return h;
+}
+function statCard(icon,label,value,color){return `<div class="stat-card"><div class="stat-icon" style="background:${color}18">${icon}</div><div><div class="stat-label">${label}</div><div class="stat-value">${value}</div></div></div>`;}
+
+// ─── EMPLOYEES ───
+function renderEmployees(){
+  const filtered=state.employees.filter(e=>(state.deptFilter==="All"||e.department===state.deptFilter)&&(e.name.toLowerCase().includes(state.search.toLowerCase())||e.email.toLowerCase().includes(state.search.toLowerCase())));
+  let h=`<div class="flex-between mb-5"><div><h1 class="page-title">Employees</h1><p class="page-sub">${state.employees.length} total</p></div><div class="flex-gap">${saveBtn()}<button class="btn btn-primary" onclick="showEmpForm()">+ Add Employee</button></div></div>`;
+  h+=`<div class="flex-gap mb-5"><input class="search-bar" placeholder="Search…" value="${state.search}" oninput="state.search=this.value;renderPage()"><select class="filter-select" onchange="state.deptFilter=this.value;renderPage()"><option value="All">All Departments</option>${DEPARTMENTS.map(d=>`<option ${state.deptFilter===d?"selected":""}>${d}</option>`).join("")}</select></div>`;
+  h+=`<div class="card" style="padding:0;overflow:hidden"><table><thead><tr>${["Name","Email","Department","Position","Status","Actions"].map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody>`;
+  filtered.forEach(emp=>{
+    h+=`<tr><td style="font-weight:600">${emp.name}</td><td style="color:#6b7280">${emp.email}</td><td>${badge(emp.department,"#6366f1","#eef2ff")}</td><td>${emp.position}</td><td>${statusBadge(emp.status)}</td><td><button class="btn-ghost" onclick="showEmpForm('${emp.id}')">Edit</button> <button class="btn-ghost red" onclick="deleteEmployee('${emp.id}')">Delete</button></td></tr>`;
+  });
+  h+=`</tbody></table>`;
+  if(!filtered.length)h+=`<div class="empty-state">No employees found.</div>`;
+  h+=`</div>`;
+  return h;
+}
+
+function showEmpForm(id){
+  const emp=id?state.employees.find(e=>e.id===id):null;
+  const f=emp||{id:uid(),name:"",email:"",department:DEPARTMENTS[0],position:"",phone:"",joinDate:fmt(new Date()),status:"Active"};
+  let c=`<div class="grid-2">`;
+  c+=inputField("Name","emp-name",f.name)+inputField("Email","emp-email",f.email);
+  c+=selectField("Department","emp-dept",DEPARTMENTS,f.department)+inputField("Position","emp-pos",f.position);
+  c+=inputField("Phone","emp-phone",f.phone)+`<div class="input-group"><label>Join Date</label><input type="date" id="emp-date" value="${f.joinDate}"></div>`;
+  c+=selectField("Status","emp-status",["Active","On Leave","Inactive"],f.status);
+  c+=`</div><div style="display:flex;gap:10px;justify-content:flex-end;margin-top:10px"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="saveEmployee('${f.id}')">Save Employee</button></div>`;
+  showModal(emp?"Edit Employee":"Add Employee",c);
+}
+
+function saveEmployee(id){
+  const emp={id,name:g("emp-name"),email:g("emp-email"),department:g("emp-dept"),position:g("emp-pos"),phone:g("emp-phone"),joinDate:g("emp-date"),status:g("emp-status")};
+  if(!emp.name)return;
+  const i=state.employees.findIndex(e=>e.id===id);
+  if(i>=0)state.employees[i]=emp; else state.employees.push(emp);
+  closeModal();markUnsaved();render();
+}
+function deleteEmployee(id){if(!confirm("Delete?"))return;state.employees=state.employees.filter(e=>e.id!==id);markUnsaved();render();}
+function g(id){return document.getElementById(id)?.value||"";}
+function inputField(label,id,val){return `<div class="input-group"><label>${label}</label><input id="${id}" value="${val||""}"></div>`;}
+function selectField(label,id,opts,val){return `<div class="input-group"><label>${label}</label><select id="${id}">${opts.map(o=>`<option ${val===o?"selected":""}>${o}</option>`).join("")}</select></div>`;}
+
+// ─── LEAVES ───
+function renderLeaves(){
+  let h=`<div class="flex-between mb-5"><div><h1 class="page-title">Leave Management</h1><p class="page-sub">${state.leaves.length} requests</p></div><div class="flex-gap">${saveBtn()}<button class="btn btn-primary" onclick="showLeaveForm()">+ New Leave Request</button></div></div>`;
+  h+=`<div class="card" style="padding:0;overflow:hidden"><table><thead><tr>${["Employee","Type","Start","End","Reason","Status","Actions"].map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody>`;
+  state.leaves.forEach(l=>{
+    const emp=state.employees.find(e=>e.id===l.employeeId);
+    const actions=l.status==="Pending"?`<button class="btn btn-success" style="font-size:11px;padding:4px 10px" onclick="updateLeave('${l.id}','Approved')">Approve</button> <button class="btn btn-danger" style="font-size:11px;padding:4px 10px" onclick="updateLeave('${l.id}','Rejected')">Reject</button>`:"";
+    h+=`<tr><td style="font-weight:600">${emp?.name||"Unknown"}</td><td>${badge(l.type)}</td><td>${l.startDate}</td><td>${l.endDate}</td><td style="color:#6b7280;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l.reason}</td><td>${statusBadge(l.status)}</td><td>${actions}</td></tr>`;
+  });
+  h+=`</tbody></table>`;
+  if(!state.leaves.length)h+=`<div class="empty-state">No leave requests yet.</div>`;
+  h+=`</div>`;
+  return h;
+}
+
+function showLeaveForm(){
+  const empOpts=state.employees.map(e=>`<option value="${e.id}">${e.name}</option>`).join("");
+  const typeOpts=LEAVE_TYPES.map(t=>`<option>${t}</option>`).join("");
+  const today=fmt(new Date());
+  let c=`<div class="input-group"><label>Employee</label><select id="lv-emp">${empOpts}</select></div>`;
+  c+=`<div class="input-group"><label>Leave Type</label><select id="lv-type">${typeOpts}</select></div>`;
+  c+=`<div class="grid-2"><div class="input-group"><label>Start Date</label><input type="date" id="lv-start" value="${today}"></div><div class="input-group"><label>End Date</label><input type="date" id="lv-end" value="${today}"></div></div>`;
+  c+=inputField("Reason","lv-reason","");
+  c+=`<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:10px"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="saveLeave()">Submit Leave</button></div>`;
+  showModal("New Leave Request",c);
+}
+
+function saveLeave(){
+  const lv={id:uid(),employeeId:g("lv-emp"),type:g("lv-type"),startDate:g("lv-start"),endDate:g("lv-end"),reason:g("lv-reason"),status:"Pending"};
+  if(!lv.employeeId)return;
+  state.leaves.push(lv);closeModal();markUnsaved();render();
+}
+function updateLeave(id,status){
+  const l=state.leaves.find(x=>x.id===id);if(l)l.status=status;
+  markUnsaved();render();showToast("Leave "+status.toLowerCase()+".");
+}
+
+// ─── SHIFTS ───
+function renderShifts(){
+  const y=state.calYear,m=state.calMonth,days=daysInMonth(y,m);
+  const active=state.employees.filter(e=>e.status==="Active");
+  let h=`<div class="flex-between mb-5"><div><h1 class="page-title">Shift Calendar</h1><p class="page-sub">Edit shifts, then save to write to file</p></div><div class="flex-gap">${saveBtn()}<button class="btn btn-success" onclick="autoGenShifts()">⚡ Auto-Generate</button></div></div>`;
+  h+=`<div class="flex-gap mb-5"><button class="btn btn-secondary" onclick="prevMonth()">◀</button><span style="font-weight:700;font-size:17px;min-width:180px;text-align:center">${MONTHS[m]} ${y}</span><button class="btn btn-secondary" onclick="nextMonth()">▶</button>`;
+  h+=`<div style="margin-left:auto;display:flex;gap:10px;flex-wrap:wrap">`;
+  SHIFT_TYPES.forEach(s=>{h+=`<div class="legend-item"><div class="legend-dot" style="background:${s.bg};border:2px solid ${s.color}"></div>${s.label}</div>`;});
+  h+=`<div class="legend-item"><div class="legend-dot" style="background:#fecaca;border:2px solid #dc2626"></div>Leave</div></div></div>`;
+  h+=`<div class="card" style="overflow-x:auto"><table class="shift-table"><thead><tr><th class="header-cell">Employee</th>`;
+  for(let d=1;d<=days;d++){const dow=new Date(y,m,d).getDay();const isW=dow===0||dow===6;h+=`<th style="padding:6px 4px;min-width:44px;background:${isW?"#fef2f2":"#f9fafb"}"><div style="font-size:10px;color:#9ca3af">${DAYS[dow]}</div><div>${d}</div></th>`;}
+  h+=`</tr></thead><tbody>`;
+  active.forEach(emp=>{
+    h+=`<tr><td class="emp-cell">${emp.name}<div class="dept">${emp.department}</div></td>`;
+    for(let d=1;d<=days;d++){
+      const date=`${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+      const onLeave=state.leaves.some(l=>l.employeeId===emp.id&&l.status==="Approved"&&date>=l.startDate&&date<=l.endDate);
+      const shift=state.shifts[date]?.[emp.id]||"";
+      const st=SHIFT_TYPES.find(s=>s.id===shift);
+      if(onLeave){
+        h+=`<td style="background:#fecaca"><span style="font-size:10px;color:#dc2626;font-weight:700">LEAVE</span></td>`;
+      }else{
+        h+=`<td style="background:${st?st.bg:"#fff"}"><select class="shift-select" style="color:${st?st.color:"#9ca3af"}" onchange="setShift('${date}','${emp.id}',this.value)"><option value="">—</option>${SHIFT_TYPES.map(s=>`<option value="${s.id}" ${shift===s.id?"selected":""}>${s.label[0]}</option>`).join("")}</select></td>`;
+      }
+    }
+    h+=`</tr>`;
+  });
+  h+=`</tbody></table></div>`;
+  return h;
+}
+
+function setShift(date,empId,shift){
+  if(!state.shifts[date])state.shifts[date]={};
+  if(shift)state.shifts[date][empId]=shift;
+  else delete state.shifts[date][empId];
+  if(!Object.keys(state.shifts[date]).length)delete state.shifts[date];
+  markUnsaved();render();
+}
+function prevMonth(){if(state.calMonth===0){state.calMonth=11;state.calYear--;}else state.calMonth--;render();}
+function nextMonth(){if(state.calMonth===11){state.calMonth=0;state.calYear++;}else state.calMonth++;render();}
+function autoGenShifts(){
+  const y=state.calYear,m=state.calMonth,days=daysInMonth(y,m);
+  const active=state.employees.filter(e=>e.status==="Active");
+  const sIds=["morning","afternoon","night"];
+  for(let d=1;d<=days;d++){
+    const date=`${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+    if(!state.shifts[date])state.shifts[date]={};
+    const dow=new Date(y,m,d).getDay();
+    active.forEach((emp,idx)=>{
+      const ol=state.leaves.some(l=>l.employeeId===emp.id&&l.status==="Approved"&&date>=l.startDate&&date<=l.endDate);
+      if(ol||state.shifts[date][emp.id])return;
+      state.shifts[date][emp.id]=(dow===0||dow===6)?(Math.random()>.65?sIds[(idx+d)%3]:"off"):sIds[(idx+d)%3];
+    });
+  }
+  markUnsaved();render();showToast("Shifts generated!");
+}
+
+// ─── INIT ───
+render();
+</script>
+</body>
+</html>
